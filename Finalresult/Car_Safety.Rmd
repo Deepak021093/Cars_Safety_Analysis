@@ -1,0 +1,421 @@
+---
+title: "Analysis of NCT Data"
+author: "Deepak Kumar Yuvanesan"
+date: "`r format(Sys.time(), '%d %B, %Y')`"
+output: html_document
+---
+## {.tabset}
+
+### Introduction
+
+##### This document seeks to perform an exploratory dive into a Road Safety data which informs on operations of the National Car Testing Service ("NCTS") recorded for Road Safety Authority("RSA") Ireland, from the years 2015-2018. The analysis presented herein are based on provided inputs from Applus Car Testing Service Ltd. (ACTS) and the Automobile Association (AA).This focuses on statistics in relation to the NCT (National Car Test) including annual pass/fail rates,make and model data of the respective years.The raw data was extracted from https://www.rsa.ie/RSA/Your-Vehicle/Your-Vehicle-/NCT-Statistics-/ , Pass/Fail rates by Centre , Make and Model Data CSV files were downloaded for data manipulation and visualization workouts.
+
+
+```{r setup, include=FALSE}
+
+suppressMessages(library(hrbrthemes))
+suppressMessages(library(xlsx))
+suppressMessages(library(rmarkdown))
+suppressMessages(library(directlabels))
+suppressMessages(library(viridis))
+suppressMessages(library(readr))
+suppressMessages(library(gganimate))
+suppressMessages(library(forcats))
+suppressMessages(library(ggplot2))
+suppressMessages(library(dplyr))
+suppressMessages(library(gridExtra))
+suppressMessages(library(plotly))
+suppressMessages(library(tibble))
+suppressMessages(library(rgl))
+suppressMessages(library(grid))
+
+setwd("E:/Portfolio/Cars_Safety")
+
+options(warn = -1)
+
+mm2018<-read.csv("Datasets/Make Model data 2018.csv")
+mm2017<-read.csv("Datasets/Make Model data 2017.csv")
+mm2016<-read.csv("Datasets/Make Model data 2016.csv")
+mm2015<-read.csv("Datasets/Make Model data 2015.csv")
+
+
+
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+**Top 25 Car Makers with highest pass% cumulative for 2015-2018**
+
+```{r echo=FALSE, fig.width=7, fig.height=5}
+
+
+layout(matrix(c(1,1,2,3), ncol=2), widths=c(3,1),heights=c(2,2))
+
+makes<- select(mm2018, names(mm2018[c(1,4,5,7)]))
+makes<-rbind(makes, mm2017[c(1,4,5,7)], mm2016[c(1,4,5,7)], mm2015[c(1,4,5,7)])
+makes123<-makes %>% group_by(VehicleMake) %>% summarise(Total = sum(Total), Pass = sum(PASS), Fail = sum(FAIL))
+
+makes123<-mutate(makes123, passpercentage = (Pass*100)/Total)
+makes123<- arrange(makes123, desc(passpercentage)) %>% filter(Total>10)
+ggplot(makes123[1:25,] , aes(x=sort(VehicleMake, decreasing = TRUE), y= passpercentage, color = VehicleMake)) + geom_bar(stat = "identity")+ coord_flip()+labs(x = "VehicleMake")
+
+
+```
+
+    
+**_Insights:_**
+
+##### TVR, Triumph and Toyota have the highest Pass percentages for all the four years together, and gives us the initial impressions that they are very reliable.
+
+**-----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------**
+
+### Analysis by Car Makes/Test Centres
+
+```{r echo=FALSE, fig.width=6, fig.height=3, fig.align= 'centre'}
+Pass2018<-group_by(mm2018,VehicleMake) %>%summarise(Tot18 = sum(Total),Pass18 = sum(PASS), Pass18perc = (sum(PASS)*100)/sum(Total))%>% filter(Tot18>10)
+Pass2017<-group_by(mm2017, VehicleMake) %>%summarise(Tot17 = sum(Total),Pass17 = sum(PASS), Pass17perc = (sum(PASS)*100)/sum(Total))%>% filter(Tot17>10)
+Pass2016<-group_by(mm2016, VehicleMake) %>%summarise(Tot16 = sum(Total),Pass16 = sum(PASS), Pass16perc = (sum(PASS)*100)/sum(Total))%>% filter(Tot16>10)
+Pass2015<-group_by(mm2015, VehicleMake) %>%summarise(Tot15 = sum(Total),Pass15 = sum(PASS), Pass15perc = (sum(PASS)*100)/sum(Total))%>% filter(Tot15>10)
+allPass<-full_join(Pass2018,Pass2017, by = "VehicleMake")%>%full_join(Pass2016, by = "VehicleMake")%>%full_join(Pass2015, by = "VehicleMake")
+
+```
+
+**Top 10 Car makers with pass% per year (Min Criteria: Atleast 10 tests)**
+
+```{r echo=FALSE, fig.height=4, fig.width=7, fig.align= 'centre'}
+p1<-ggplot(arrange(allPass, desc(Pass18perc))[1:10,], aes(x=fct_reorder(VehicleMake,Pass18perc), y= Pass18perc , fill = VehicleMake)) + geom_segment( aes(xend=VehicleMake, yend=0))+geom_point( size=3, color="Green") + coord_flip()+ xlab("Car Make")+ ylab("2018 Pass%")+theme(legend.position = "none") 
+p2<-ggplot(arrange(allPass, desc(Pass17perc))[1:10,], aes(x=fct_reorder(VehicleMake,Pass17perc), y= Pass17perc, color = VehicleMake)) + geom_segment( aes(xend=VehicleMake, yend=0))+geom_point( size=3, color="Green") + coord_flip()+ xlab("Car Make")+ ylab("2017 Pass%")+theme(legend.position = "none") 
+p3<-ggplot(arrange(allPass, desc(Pass16perc))[1:10,], aes(x=fct_reorder(VehicleMake,Pass16perc), y= Pass16perc, color = VehicleMake)) + geom_segment( aes(xend=VehicleMake, yend=0))+geom_point( size=3, color="Green")+ coord_flip()+ xlab("Car Make")+ ylab("2016 Pass%")+theme(legend.position = "none") 
+p4<-ggplot(arrange(allPass, desc(Pass15perc))[1:10,], aes(x=fct_reorder(VehicleMake,Pass15perc), y= Pass15perc, fill = VehicleMake)) + geom_segment( aes(xend=VehicleMake, yend=0))+geom_point( size=3, color="Green") + coord_flip()+ xlab("Car Make")+ ylab("2015 Pass%")+theme(legend.position = "none")
+
+grid.arrange(p1,p2, p3, p4 ,nrow=2, ncol=2)
+```
+
+**_Insights:_** 
+Dacia seems to be the best with maximum number of tests passed across the years, with Perodua acquiring the second position in terms of pass rates across the years, except for the year 2018.
+
+**-----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------**
+
+```{r echo=FALSE}
+aa2018<-group_by(mm2018, VehicleMake) %>%summarise(Tot18 = sum(Total),Fail18 = sum(FAIL), Fail18perc = (sum(FAIL)*100)/sum(Total))%>% filter(Tot18>10)
+aa2017<-group_by(mm2017, VehicleMake) %>%summarise(Tot17 = sum(Total),Fail17 = sum(FAIL), Fail17perc = (sum(FAIL)*100)/sum(Total))%>% filter(Tot17>10)
+aa2016<-group_by(mm2016, VehicleMake) %>%summarise(Tot16 = sum(Total),Fail16 = sum(FAIL), Fail16perc = (sum(FAIL)*100)/sum(Total))%>% filter(Tot16>10)
+aa2015<-group_by(mm2015, VehicleMake) %>%summarise(Tot15 = sum(Total),Fail15 = sum(FAIL), Fail15perc = (sum(FAIL)*100)/sum(Total))%>% filter(Tot15>10)
+allmm<-full_join(aa2018,aa2017, by = "VehicleMake")%>%full_join(aa2016, by = "VehicleMake")%>%full_join(aa2015, by = "VehicleMake")
+
+
+```
+
+**Top 10 Car makers with fail% per year (Min criteria: Atleast 10 tests)**
+
+```{r echo=FALSE, fig.width=7, fig.height=4, fig.align='centre'}
+f1<-ggplot(arrange(allmm, desc(Fail18perc))[1:10,], aes(x=fct_reorder(VehicleMake,Fail18perc), y= Fail18perc , color = VehicleMake)) + geom_segment( aes(xend=VehicleMake, yend=0))+geom_point( size=3, color="red") + coord_flip()+ xlab("Car Make")+ ylab("2018 Fail%")+theme(legend.position = "none")
+
+f2<-ggplot(arrange(allmm, desc(Fail17perc))[1:10,], aes(x=fct_reorder(VehicleMake,Fail17perc), y= Fail17perc, color = VehicleMake)) + geom_segment( aes(xend=VehicleMake, yend=0))+geom_point( size=3, color="red") + coord_flip()+ xlab("Car Make")+ ylab("2017 Fail%")+theme(legend.position = "none")
+
+f3<-ggplot(arrange(allmm, desc(Fail16perc))[1:10,], aes(x=fct_reorder(VehicleMake,Fail16perc), y= Fail16perc, color = VehicleMake)) + geom_segment( aes(xend=VehicleMake, yend=0))+geom_point( size=3, color="red") + coord_flip()+ xlab("Car Make")+ ylab("2016 Fail%")+theme(legend.position = "none")
+
+f4<-ggplot(arrange(allmm, desc(Fail15perc))[1:10,], aes(x=fct_reorder(VehicleMake,Fail15perc), y= Fail15perc, color = VehicleMake)) + geom_segment( aes(xend=VehicleMake, yend=0))+geom_point( size=3, color="red") + coord_flip()+ xlab("Car Make")+ ylab("2015 Fail%")+theme(legend.position = "none")
+
+grid.arrange(f1,f2,f3,f4 ,nrow=2, ncol=2)
+
+```
+
+**_Insights:_**
+Proton seems to have maximum fail rate for the year 2018.  Ardagh had the highest fail rate for two consecutive years i.e. 2016 and 2017 and Tata had the maximum fail rate for the year 2015.
+
+**-----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------**
+
+```{r echo=FALSE}
+#Models with high pass% for 4 yrs
+
+s1<-merge(x=(arrange(allPass, desc(Pass18perc)))[1:10,],y=(arrange(allPass, desc(Pass17perc)))[1:10,],by="VehicleMake") %>%
+  merge(y=(arrange(allPass, desc(Pass16perc)))[1:10,],by="VehicleMake") %>%
+  merge(y=(arrange(allPass, desc(Pass15perc)))[1:10,],by="VehicleMake")
+
+s1<-s1[,1:13]
+s1<-mutate(s1, year = "2018")
+s1<-s1[,c(1,14,2:13)]
+
+s2<-s1
+for (j in 1:3) {
+  for (i in 1:5) {
+    s2<-add_row(s2, VehicleMake= s2[i,1])
+  }  
+}
+
+#adding extra column with values for year
+s2[6:20,2]<-c(rep("2017",5), rep("2016",5), rep("2015",5) )
+
+#Adding new column for pass rates
+s2<-mutate(s2, Passpercentage = s2$Pass18perc.x)
+s2<-s2[,c(1:2,15,3:14)]
+s2[6:20,3]<-c(s2$Pass17perc.x[1:5], s2$Pass16perc.x[1:5], s2$Pass15perc.x[1:5] )
+
+#Adding a column for total test
+s2<-mutate(s2, Total = s2$Tot18.x)
+s2<-s2[,c(1:2,16,3:15)]
+s2[6:20,3]<-c(s2$Tot17.x[1:5], s2$Tot16.x[1:5], s2$Tot15.x[1:5] )
+
+#Adding new column for failures
+s2<-mutate(s2, Pass = s2$Pass18.x)
+s2<-s2[,c(1:3,17,4:16)]
+s2[6:20,4]<-c(s2$Pass17.x[1:5], s2$Pass16.x[1:5], s2$Pass15.x[1:5] )
+
+#Fully cleaned dataset
+s2<- s2[,1:5]
+
+s3<-s2
+s3$year<-as.numeric(as.character(s3$year))
+
+#Models with high fail% for 5 yrs
+
+sss1<-merge(x=(arrange(allmm, desc(Fail18perc)))[1:10,],y=(arrange(allmm, desc(Fail17perc)))[1:10,],by="VehicleMake") %>%
+merge(y=(arrange(allmm, desc(Fail16perc)))[1:10,],by="VehicleMake") %>%
+merge(y=(arrange(allmm, desc(Fail15perc)))[1:10,],by="VehicleMake")
+
+#adding extra rows
+#Models with failure for 5 yrs
+sss1<-sss1[,1:13]
+sss1<-mutate(sss1, year = "2018")
+sss1<-sss1[,c(1,14,2:13)]
+
+#New dataset
+sss2<-sss1
+for (j in 1:3) {
+  for (i in 1:5) {
+    sss2<-add_row(sss2, VehicleMake= sss2[i,1])
+  }  
+}
+
+#adding extra column with values for year
+sss2[6:20,2]<-c(rep("2017",5), rep("2016",5), rep("2015",5) )
+
+#Adding new column for failure rates
+sss2<-mutate(sss2, FailPercentage = sss2$Fail18perc.x)
+sss2<-sss2[,c(1:2,15,3:14)]
+sss2[6:20,3]<-c(sss2$Fail17perc.x[1:5], sss2$Fail16perc.x[1:5], sss2$Fail15perc.x[1:5] )
+
+#Adding a column for total test
+sss2<-mutate(sss2, Total = sss2$Tot18.x)
+sss2<-sss2[,c(1:2,16,3:15)]
+sss2[6:20,3]<-c(sss2$Tot17.x[1:5], sss2$Tot16.x[1:5], sss2$Tot15.x[1:5] )
+
+#Adding new column for failures
+sss2<-mutate(sss2, Fail = sss2$Fail18.x)
+sss2<-sss2[,c(1:3,17,4:16)]
+sss2[6:20,4]<-c(sss2$Fail17.x[1:5], sss2$Fail16.x[1:5], sss2$Fail15.x[1:5] )
+
+#Fully cleaned dataset
+sss2<- sss2[,1:5]
+sss3<-sss2
+sss3$year<-as.numeric(as.character(sss3$year))
+```
+
+**Makers with high Pass% common to all four years among the top 10**
+
+
+```{r echo=FALSE, fig.width=6, fig.height=3, fig.align= 'centre'}
+group_by(s3, VehicleMake) %>% summarise(Tot = sum(Total), Pass = sum(Pass), Passpercentage = (Pass*100)/Tot)
+
+abc1<-ggplot(s3, aes(x = year , y = Passpercentage, color = VehicleMake, group = VehicleMake)) + geom_point()+ geom_path()
+ggplotly(abc1)
+
+```
+
+**_Insights:_**
+Dacia still tops the pass test rates for all the four years, followed by Perodua. At the fifth place we can notice Kia to be nearly constant with the pass rates for a period of four years.
+
+
+**Makers with high Fail% common to all four years among the top 10**
+
+```{r echo=FALSE, fig.width=6, fig.height=3, fig.align='centre'}
+
+
+group_by(sss3, VehicleMake) %>% summarise(Tot = sum(Total), fail = sum(Fail), Failpercentage = (fail*100)/Tot)
+
+abc2<-ggplot(sss3, aes(x = year , y = FailPercentage, color = VehicleMake, group = VehicleMake)) +  geom_path()+geom_point()
+
+ggplotly(abc2)
+
+
+```
+
+
+**_Insights:_**
+SsangYong seems to have maximum fail rates across the four years, followed by Austin. Dodge shows a high failure rate between the years 2017-2018. Daewoo seems to have a deep drop of failure rates from the year 2016-2018.
+
+**-----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------**
+
+```{r echo=FALSE}
+sss2[1:5,6:20]<-mm2018 %>% group_by(VehicleMake) %>% summarise_at( .vars= vars( names(mm2018)[c(9,11,13,15,17,19,21,23,25,27,29,31,33,35)] ), .funs =  sum) %>% 
+  filter(VehicleMake == sss2$VehicleMake[1] | VehicleMake == sss2$VehicleMake[2] | VehicleMake == sss2$VehicleMake[3] | VehicleMake == sss2$VehicleMake[4] | VehicleMake == sss2$VehicleMake[5])
+
+sss2[6:10,6:20]<-mm2017 %>% group_by(VehicleMake) %>% summarise_at( .vars= vars( names(mm2017)[c(9,11,13,15,17,19,21,23,25,27,29,31,33,35)] ), .funs =  sum) %>% 
+  filter(VehicleMake == sss2$VehicleMake[1] | VehicleMake == sss2$VehicleMake[2] | VehicleMake == sss2$VehicleMake[3] | VehicleMake == sss2$VehicleMake[4] | VehicleMake == sss2$VehicleMake[5])
+
+sss2[11:15,6:20]<-mm2016 %>% group_by(VehicleMake) %>% summarise_at( .vars= vars( names(mm2016)[c(9,11,13,15,17,19,21,23,25,27,29,31,33,35)] ), .funs =  sum) %>% 
+  filter(VehicleMake == sss2$VehicleMake[1] | VehicleMake == sss2$VehicleMake[2] | VehicleMake == sss2$VehicleMake[3] | VehicleMake == sss2$VehicleMake[4] | VehicleMake == sss2$VehicleMake[5])
+
+sss2[16:20,6:20]<-mm2015 %>% group_by(VehicleMake) %>% summarise_at( .vars= vars( names(mm2015)[c(9,11,13,15,17,19,21,23,25,27,29,31,33,35)] ), .funs =  sum) %>% 
+  filter(VehicleMake == sss2$VehicleMake[1] | VehicleMake == sss2$VehicleMake[2] | VehicleMake == sss2$VehicleMake[3] | VehicleMake == sss2$VehicleMake[4] | VehicleMake == sss2$VehicleMake[5])
+
+sss2<-select (sss2,-c(VehicleMake.1))
+
+l1<-1
+e1<-(subset(sss2, VehicleMake == sss2$VehicleMake[1])) 
+for (k in 1:4) {
+  e1$failure_value[k] <- max(sss2[l1,6:19])
+  e1$reason[k]<-names(sss2[which(sss2[l1,] == max(sss2[l1,6:19]))])
+  l1<-l1+5
+}
+
+l2<-2
+e2<-(subset(sss2, VehicleMake == sss2$VehicleMake[2]))
+for (k in 1:4) {
+  e2$failure_value[k] <- max(sss2[l2,6:19])
+  e2$reason[k]<-names(sss2[which(sss2[l2,] == max(sss2[l2,6:19]))])
+  l2<-l2+5
+}
+
+l3<-3
+e3<-(subset(sss2, VehicleMake == sss2$VehicleMake[3]))
+for (k in 1:4) {
+  e3$failure_value[k] <- max(sss2[l3,6:19])
+  e3$reason[k]<-names(sss2[which(sss2[l3,] == max(sss2[l3,6:19]))])
+  l3<-l3+5
+}
+
+l4<-4
+e4<-(subset(sss2, VehicleMake == sss2$VehicleMake[4]))
+for (k in 1:4) {
+  e4$failure_value[k] <- max(sss2[l4,6:19])
+  e4$reason[k]<-names(sss2[which(sss2[l4,] == max(sss2[l4,6:19]))])
+  l4<-l4+5
+}
+
+l5<-5
+e5<-(subset(sss2, VehicleMake == sss2$VehicleMake[5]))
+for (k in 1:4) {
+  e5$failure_value[k] <- max(sss2[l5,6:19])
+  e5$reason[k]<-names(sss2[which(sss2[l5,] == max(sss2[l5,6:19]))])
+  l5<-l5+5
+}
+
+```
+
+
+```{r echo=FALSE, fig.width=5, fig.height=3}
+g1<-ggplot(e1, aes(x = year , y = failure_value, Text = reason, fill = year)) + geom_bar(stat = "identity") + theme(legend.title = element_blank())+geom_text(data=e1, aes(label=VehicleMake,y = failure_value/2), size=3)
+g11<-ggplotly(g1, legendgroup = VehicleMake)%>% layout(showlegend = FALSE)
+
+g2<-ggplot(e2, aes(x = year , y = failure_value, Text = reason, fill = year)) +  geom_bar(stat = "identity")+ theme(legend.title = element_blank())+ geom_text(data=e2, aes(label=VehicleMake, y = failure_value/2), size=3)
+g22<-ggplotly(g2, legendgroup = VehicleMake)%>% layout(showlegend = FALSE)
+
+g3<-ggplot(e3, aes(x = year , y = failure_value, Text = reason, fill = year )) +  geom_bar(stat = "identity")+ theme(legend.title = element_blank()) +geom_text(data=e3, aes(label=VehicleMake, y = failure_value/2), size=3)
+g33<-ggplotly(g3,legendgroup = VehicleMake)%>% layout(showlegend = FALSE)
+
+g4<-ggplot(e4, aes(x = year , y = failure_value, Text = reason,fill = year)) + geom_bar(stat = "identity")+ theme(legend.title = element_blank()) +geom_text(data=e4, aes(label=VehicleMake, y = failure_value/2), size=3)
+g44<-ggplotly(g4, legendgroup = VehicleMake)%>% layout(showlegend = FALSE)
+
+g5<-ggplot(e5, aes(x = year , y = failure_value,  Text = reason,fill = year)) +  geom_bar(stat = "identity")+ theme(legend.title = element_blank()) + geom_text(data=e5, aes(label=VehicleMake, y = failure_value/2), size=3)
+
+
+g55<-ggplotly(g5, legendgroup = VehicleMake)%>% layout(showlegend = FALSE)
+```
+
+
+**_Now that we have made a good analysis of pass/fail rates, a deeper dive into the analysis, will answer us as to why the car makes failed the test with a high failure percentage. To highlight the cause of failure, we plotted a bar plot displaying the failure reason for the top 5 car makes with high fail rate for each year._**
+
+```{r echo=FALSE, fig.width=7, fig.height= 5}
+
+subplot(g11, g22, g33, g44, g55 , nrows = 5, margin = 0.05)
+e1[,c(1,2,3,4)]
+e2[,c(1,2,3,4)]
+e3[,c(1,2,3,4)]
+e4[,c(1,2,3,4)]
+e5[,c(1,2,3,4)]
+```
+
+
+**_Insights:_**
+When we hover over the bar plot, we see that the main reason why Austin Car Make failed the tests were because of Vehicle and Safety equipment with a high failure value. Daewoo Car make had a constant reason for failure which was the brake test for all the four years. Dodge has two reasons as to why it failed one being the steering and suspension and lighting and electrical. MG and SsangYong being at the top 5 failed with a common reason i.e Lighting and Electrical across all the four years.
+
+
+```{r echo=FALSE}
+
+setwd("E:/Portfolio/Cars_Safety")
+
+pf15 <- read.csv("Datasets/Pass Fail Stats 2015.csv")
+pf16 <- read.csv("Datasets/Pass Fail Stats 2016.csv")
+pf17 <- read.csv("Datasets/Pass Fail Stats 2017.csv")
+pf18 <- read.csv("Datasets/Pass Fail Stats 2018.csv")
+
+names(pf15)[1] <- "Centre"
+names(pf16)[1] <- "Centre"
+names(pf17)[1] <- "Centre"
+names(pf18)[1] <- "Centre"
+
+pf15 <- as_tibble(pf15)
+pf16 <- as_tibble(pf16)
+pf17 <- as_tibble(pf17)
+pf18 <- as_tibble(pf18)
+
+pf15 <- pf15 %>% mutate(Year = 2015)
+pf16 <- pf16 %>% mutate(Year = 2016)
+pf17 <- pf17 %>% mutate(Year = 2017)
+pf18 <- pf18 %>% mutate(Year = 2018)
+
+
+pf2015 <- pf15[1:47,]
+pf2016 <- pf16[1:47,]
+pf2017 <- pf17[1:47,]
+pf2018 <- pf18[1:47,]
+
+pf <- rbind(pf2015, pf2016, pf2017, pf2018)
+
+pf <- as_tibble(pf)
+
+```
+
+
+```{r echo=FALSE}
+
+
+## Calculate total tests taken + add column
+pf2 <- pf %>% mutate(Test.Total = (PASS..Initial.Test.+PASS..Re.test.+FAIL..Initial.Test.+FAIL..Re.test.))
+
+## Calculate percentage pass rate + add column
+pf3 <- pf2 %>% mutate(Pass.Perc = round((100)*(Total.Passes/Test.Total),1))
+
+## Arrange data in descending order
+pf1 <- pf3 %>% arrange(desc(Pass.Perc))
+
+## Calculate mean pass rate per test centre, and take top 10
+MeanPass <- pf1 %>% group_by(Centre) %>% summarise(Mean = mean(Pass.Perc)) %>% arrange(desc(Mean)) %>% slice(1:10)
+
+## Top 10 test centres with highest mean pass rate over 2015-2018
+TopCentres <- MeanPass %>% select(Centre)
+
+## Filter top 10 test centres data from original dataset
+Top10 <- pf1 %>% filter(Centre %in% c("Kilkenny", "Deansgrange", "Killarney", "Portlaoise", "Tralee", "Ballinasloe", "Abbeyfeale", "Tullamore", "Cork-Little Island", "Macroom"))
+
+```
+
+**_Yearwise Analysis of Pass Rate by Test Centres_**
+
+```{r echo=FALSE, fig.height = 3, fig.width = 7}
+PassPlot <- ggplot(data = Top10, mapping = aes(x = Year, y = Pass.Perc, group = Centre, colour = Centre)) + geom_line() + labs(x = "Year", y = "PassPercentage")
+
+PassPlot1 <- ggplotly(PassPlot)
+PassPlot1
+```
+
+**_Insights:_**
+The Yearwise trend of Pass rates for each test centre shows the Top 10 results between 2015 and 2018. The trend for Abbeyfeale shows a gradual increase in Pass% between 2015 and 2017, with a slight drop between 2017 and 2018. We can see that the pass rate in Killarney has consistently dropped every year, from 68.1% in 2015 to 66.4% in 2018. The test centre in Tralee experienced a significant drop in pass rate from 67.8% to 65.4% between 2015 and 2016, before stabilising in the remaining years.
+
+**-----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------**
+
+**_Summary:_**
+The datasets obtained from the NCT website over a period of 4 years (2015-2018), were of two parts: Pass/fail rates with respect to car makes,  and with respect to the centres where the analysis was conducted. Initial analysis considering the highest pass % cumulative over the years of the top 25 Car Makers revealed that TVR, Triumph and Toyota are the top 3 car makers with high pass % (Over 60%). Further observations yielded that Dacia is the best for each of the four years, and Perodua, which was constantly in the second place for 2015-2017, went to the fourth place in 2018 denoting that it might be decreasing in its safety. Considering the fail%, Ardagh has significantly improved in 2018, and Austin, Ssangyong and MG seems to have constantly achieved high fail rates. The next two trend charts strengthens our initial analysis: Dacia is one of the best cars for safety test, with Perodua following closely for the first three years. It is also confirmed that Ssangyong and Austin are two makers who have been constantly having high failure %.
+
+A further deep dive analysis into the dataset throws some light that most makers fail mostly due to specific reasons: Austin fails as it does not comply with Vehicle and Safety equipment most of the time. Daewoo fails brake test more than often, Dodge, MG and Ssangyong fail Lighting and Electrical tests, owing to its high failure rates for the four years. If the above reasons can be rectified, then the there are high chances that these car makers can improve their test scores going forward. Finally, we plot the Pass/Fail rates by Test centres and observe that, the tests in Kilkenny has got high consistent pass rates, and also that Killarney has been dropping in its pass rates. In addition to the analysis made, if we consider year of car make and conduct hypothesis testing between the age of car make versus failure rates, it might help us reduce and understand how the age affects the safety of the car. All the above analysis provided from the given datasets can be helpful for car makers to improve the safety equipment of the car for future models.
